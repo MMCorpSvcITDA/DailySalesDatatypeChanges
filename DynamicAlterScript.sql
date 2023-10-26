@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 
 ----------------------- ALTER DYNAMIC SCRIPT -------------------------------
@@ -91,3 +92,98 @@ GROUP BY ipk.TABLE_SCHEMA , ipk.TABLE_NAME , ipk.CONSTRAINT_NAME
 
 
 
+=======
+
+
+----------------------- ALTER DYNAMIC SCRIPT -------------------------------
+
+SELECT * 
+FROM (
+
+SELECT CASE 
+		WHEN [DATA_TYPE] = 'varchar' and aa.[TABLE_NAME] not like '%hier%' and bb.[CONSTRAINT_NAME] is not null
+		THEN
+		CONCAT('ALTER TABLE ' , aa.[TABLE_SCHEMA] ,'.', aa.[TABLE_NAME] , ' ALTER COLUMN ', aa.[COLUMN_NAME] , ' NVARCHAR(',CHARACTER_MAXIMUM_LENGTH,') NOT NULL')
+		WHEN [DATA_TYPE] = 'varchar' and aa.[TABLE_NAME] not like '%hier%' and bb.[CONSTRAINT_NAME] is null
+		THEN
+		CONCAT('ALTER TABLE ' , aa.[TABLE_SCHEMA] ,'.', aa.[TABLE_NAME] , ' ALTER COLUMN ', aa.[COLUMN_NAME] , ' NVARCHAR(',CHARACTER_MAXIMUM_LENGTH,')')		
+		WHEN [DATA_TYPE] = 'varchar' and aa.[TABLE_NAME]  like '%hier%' and bb.[CONSTRAINT_NAME] is not null and [CHARACTER_MAXIMUM_LENGTH] = 8
+		THEN
+		CONCAT('ALTER TABLE ' , aa.[TABLE_SCHEMA] ,'.', aa.[TABLE_NAME] , ' ALTER COLUMN ', aa.[COLUMN_NAME] , ' NVARCHAR(18) NOT NULL')	
+		WHEN [DATA_TYPE] = 'varchar' and aa.[TABLE_NAME] like '%hier%' and bb.[CONSTRAINT_NAME] is null and [CHARACTER_MAXIMUM_LENGTH] = 8
+		THEN
+		CONCAT('ALTER TABLE ' , aa.[TABLE_SCHEMA] ,'.', aa.[TABLE_NAME] , ' ALTER COLUMN ', aa.[COLUMN_NAME] , ' NVARCHAR(18)')	
+		WHEN [DATA_TYPE] = 'varchar' and aa.[TABLE_NAME]  like '%hier%' and bb.[CONSTRAINT_NAME] is not null and [CHARACTER_MAXIMUM_LENGTH] != 8
+		THEN
+		CONCAT('ALTER TABLE ' , aa.[TABLE_SCHEMA] ,'.', aa.[TABLE_NAME] , ' ALTER COLUMN ', aa.[COLUMN_NAME] , ' NVARCHAR(',CHARACTER_MAXIMUM_LENGTH,')')	
+		WHEN [DATA_TYPE] = 'varchar' and aa.[TABLE_NAME] like '%hier%' and bb.[CONSTRAINT_NAME] is null and [CHARACTER_MAXIMUM_LENGTH] != 8
+		THEN
+		CONCAT('ALTER TABLE ' , aa.[TABLE_SCHEMA] ,'.', aa.[TABLE_NAME] , ' ALTER COLUMN ', aa.[COLUMN_NAME] , ' NVARCHAR(',CHARACTER_MAXIMUM_LENGTH,')')	
+
+		END as alterColumnScript
+FROM INFORMATION_SCHEMA.COLUMNS aa
+LEFT JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE bb
+ON aa.TABLE_SCHEMA = bb.TABLE_SCHEMA and aa.TABLE_NAME = bb.TABLE_NAME and aa.COLUMN_NAME = bb.COLUMN_NAME 
+WHERE aa.[TABLE_SCHEMA] = 'LANDING' 
+) aa
+
+WHERE aa.[alterColumnScript] is not null
+
+
+
+/* draft
+
+SELECT CASE 
+		WHEN [DATA_TYPE] = 'varchar' and [TABLE_NAME] not like '%hier%' and CONCAT([TABLE_NAME],[COLUMN_NAME]) not in (SELECT CONCAT([TABLE_NAME],[COLUMN_NAME]) FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE )
+		THEN
+		CONCAT('ALTER TABLE ' , [TABLE_SCHEMA] ,'.', [TABLE_NAME] , ' ALTER COLUMN ', [COLUMN_NAME] , ' NVARCHAR(',CHARACTER_MAXIMUM_LENGTH,')')
+		END
+FROM INFORMATION_SCHEMA.COLUMNS	
+
+
+*/
+
+------------------------------- DROP CONSTRAINT DYNAMIC SCRIPT -----------------------------------------------------
+
+
+SELECT DISTINCT(CONCAT('ALTER TABLE ' , [TABLE_SCHEMA] ,'.',[TABLE_NAME] , ' DROP CONSTRAINT ' , [CONSTRAINT_NAME] ) ) as alterTableDropConstraintScript 
+FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE
+WHERE [TABLE_SCHEMA] = 'LANDING'
+
+/*
+ALTER TABLE <tablename>
+ADD CONSTRAINT <constraintname> PRIMARY KEY (col,col...)
+
+SELECT *
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE [TABLE_SCHEMA] not in ('LOG','ERROR')
+
+SELECT * FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE
+WHERE [TABLE_SCHEMA] = 'LANDING'
+
+*/
+
+
+------------------------- ADD CONSTRAINT DYNAMIC SCRIPT -------------------------------------
+
+SELECT * , 
+		CONCAT('ALTER TABLE ' , [TABLE_SCHEMA] ,'.',[TABLE_NAME] , ' DROP CONSTRAINT ' , [CONSTRAINT_NAME] )  as alterTableDropConstraintScript ,
+		CONCAT('ALTER TABLE ',bb.TABLE_SCHEMA , '.', bb.TABLE_NAME , ' ADD CONSTRAINT ',bb.CONSTRAINT_NAME, ' PRIMARY KEY (',bb.ConcatColumn,')')  as addConstraintScript
+FROM (
+SELECT DISTINCT(ipk.TABLE_SCHEMA) , ipk.TABLE_NAME  , ipk.CONSTRAINT_NAME 
+     ,
+   STUFF((SELECT ',' + ipks.COLUMN_NAME 
+          FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ipks
+          WHERE ipks.[TABLE_NAME] = ipk.[TABLE_NAME]
+          --ORDER BY USR_NAME
+          FOR XML PATH('')), 1, 1, '') as ConcatColumn -- [SECTORS/USERS]
+FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ipk
+WHERE [TABLE_SCHEMA] = 'LANDING'
+GROUP BY ipk.TABLE_SCHEMA , ipk.TABLE_NAME , ipk.CONSTRAINT_NAME
+
+) bb
+
+
+
+
+>>>>>>> 4f99eca6e50e597712e98aca908b2f46bfc868a0
